@@ -8,15 +8,15 @@ use ark_ec::ProjectiveCurve;
 use once_cell::sync::Lazy;
 use std::convert::TryInto;
 use verkle_trie::{database::{memory_db::MemoryDb}, trie::Trie};
-use verkle_trie::committer::precompute::PrecomputeLagrange;
-use verkle_trie::config::{VerkleConfig};
+use verkle_trie::committer::test::TestCommitter;
+use verkle_trie::config::Config;
 use verkle_trie::TrieTrait;
 use verkle_trie::proof::VerkleProof;
 use verkle_trie::to_bytes::ToBytes;
 
 #[repr(C)]
 pub struct VerkleTrie {
-    trie: Trie<MemoryDb, PrecomputeLagrange>,
+    trie: Trie<MemoryDb, TestCommitter>,
 }
 
 #[repr(C)]
@@ -25,18 +25,13 @@ pub struct Proof {
     pub len: usize,
 } 
 
-pub extern fn get_verkle_trie() -> Trie<MemoryDb, PrecomputeLagrange> {
-    let _db = MemoryDb::new();
-    let config = VerkleConfig::new(_db);
-    let mut _trie = Trie::new(config);
-    _trie
-}
-
 #[no_mangle]
 pub extern fn verkle_trie_new() -> *mut VerkleTrie {
 
     let _db = MemoryDb::new();
-    let config = VerkleConfig::new(_db);
+    let committer = TestCommitter;
+
+    let config = Config { db: _db, committer };
     let mut _trie = Trie::new(config);
     let mut vt = VerkleTrie {
         trie: _trie,
