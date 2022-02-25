@@ -408,11 +408,20 @@ test_model![
     MemoryPrelagrange;
     MemoryDb;
     PrecomputeLagrange;
-    root_hash
+    root_hash,
+    insert_fetch,
+    insert_account_fetch,
+    gen_verify_proof,
+    generate_proof_test
 ];
 
 test_model![
     RocksdbPrelagrange;
     RocksDb;
     PrecomputeLagrange;
+    root_hash,
+    insert_fetch,
+    insert_account_fetch,
+    gen_verify_proof,
+    generate_proof_test
 ];
