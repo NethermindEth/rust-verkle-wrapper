@@ -9,6 +9,7 @@ use verkle_variants::{
 };
 use std::ffi::CStr;
 use std::os::raw::c_char;
+use verkle_trie::database::Flush;
 
 #[repr(C)]
 pub enum VerkleTrie {
@@ -97,6 +98,39 @@ pub extern fn verkle_trie_get(vt: *mut VerkleTrie, key: *const u8) -> *const u8 
         VerkleTrie::RocksdbPrelagrange(vt) => vt.verkle_trie_get(key),
         VerkleTrie::RocksdbReadOnlyTest(vt) => vt.verkle_trie_get(key),
         VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.verkle_trie_get(key),
+    }
+}
+
+#[no_mangle]
+pub extern fn verkle_trie_flush(vt: *mut VerkleTrie) {
+    let _vt = unsafe{&mut *vt};
+    match _vt {
+        VerkleTrie::MemoryTest(vt) => vt.storage.flush(),
+        VerkleTrie::MemoryPrelagrange(vt) => vt.storage.flush(),
+        VerkleTrie::RocksdbTest(vt) => vt.storage.flush(),
+        VerkleTrie::RocksdbPrelagrange(vt) => vt.storage.flush(),
+        VerkleTrie::RocksdbReadOnlyTest(_vt) => (),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(_vt) => (),
+    }
+}
+
+
+#[no_mangle]
+pub extern fn verkle_trie_clear(vt: *mut VerkleTrie) {
+    let _vt = unsafe{&mut *vt};
+    match _vt {
+        VerkleTrie::MemoryTest(_vt) => (),
+        VerkleTrie::MemoryPrelagrange(_vt) => (),
+        VerkleTrie::RocksdbTest(_vt) => (),
+        VerkleTrie::RocksdbPrelagrange(_vt) => (),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => {
+            vt.storage.batch.clear();
+            vt.storage.cache.clear()
+        },
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => {
+            vt.storage.batch.clear();
+            vt.storage.cache.clear()
+        },
     }
 }
 
