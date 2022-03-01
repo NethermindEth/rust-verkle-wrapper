@@ -4,10 +4,7 @@ use std::slice;
 use std::mem::transmute;
 use std::convert::TryInto;
 use verkle_variants::{
-    memory_test,
-    memory_prelagrange,
-    rocksdb_test,
-    rocksdb_prelagrange,
+    trie,
     traits::FFI,
 };
 use std::ffi::CStr;
@@ -15,10 +12,12 @@ use std::os::raw::c_char;
 
 #[repr(C)]
 pub enum VerkleTrie {
-    MemoryTest(memory_test::VerkleTrie),
-    MemoryPrelagrange(memory_prelagrange::VerkleTrie),
-    RocksdbTest(rocksdb_test::VerkleTrie),
-    RocksdbPrelagrange(rocksdb_prelagrange::VerkleTrie),
+    MemoryTest(trie::VerkleTrieMemoryTest),
+    MemoryPrelagrange(trie::VerkleTrieMemoryPreCompute),
+    RocksdbTest(trie::VerkleTrieRocksDBTest),
+    RocksdbPrelagrange(trie::VerkleTrieRocksDBPreCompute),
+    RocksdbReadOnlyTest(trie::VerkleTrieRocksDBTest),
+    RocksdbReadOnlyPrelagrange(trie::VerkleTrieRocksDBPreCompute),
 }
 
 #[repr(C)]
@@ -31,6 +30,7 @@ pub struct Proof {
 pub enum DatabaseScheme {
     MemoryDb,
     RocksDb,
+    RocksDbReadOnly,
 }
 
 #[repr(C)]
@@ -54,22 +54,32 @@ pub extern fn verkle_trie_new(
     let vt = match database_scheme {
         DatabaseScheme::MemoryDb => match commit_scheme {
             CommitScheme::TestCommitment => {
-                let _vt = memory_test::VerkleTrie::verkle_trie_new(db_path);
+                let _vt = trie::VerkleTrieMemoryTest::verkle_trie_new(db_path);
                 VerkleTrie::MemoryTest(_vt)
             },
             CommitScheme::PrecomputeLagrange => {
-                let _vt = memory_prelagrange::VerkleTrie::verkle_trie_new(db_path);
+                let _vt = trie::VerkleTrieMemoryPreCompute::verkle_trie_new(db_path);
                 VerkleTrie::MemoryPrelagrange(_vt)
             },
         },
         DatabaseScheme::RocksDb => match commit_scheme {
             CommitScheme::TestCommitment => {
-                let _vt = rocksdb_test::VerkleTrie::verkle_trie_new(db_path);
+                let _vt = trie::VerkleTrieRocksDBTest::verkle_trie_new(db_path);
                 VerkleTrie::RocksdbTest(_vt)
             },
             CommitScheme::PrecomputeLagrange => {
-                let _vt = rocksdb_prelagrange::VerkleTrie::verkle_trie_new(db_path);
+                let _vt = trie::VerkleTrieRocksDBPreCompute::verkle_trie_new(db_path);
                 VerkleTrie::RocksdbPrelagrange(_vt)
+            }
+        },
+        DatabaseScheme::RocksDbReadOnly => match commit_scheme {
+            CommitScheme::TestCommitment => {
+                let _vt = trie::VerkleTrieRocksDBTest::verkle_trie_new(db_path);
+                VerkleTrie::RocksdbReadOnlyTest(_vt)
+            },
+            CommitScheme::PrecomputeLagrange => {
+                let _vt = trie::VerkleTrieRocksDBPreCompute::verkle_trie_new(db_path);
+                VerkleTrie::RocksdbReadOnlyPrelagrange(_vt)
             }
         }
     };
@@ -85,6 +95,8 @@ pub extern fn verkle_trie_get(vt: *mut VerkleTrie, key: *const u8) -> *const u8 
         VerkleTrie::MemoryPrelagrange(vt) => vt.verkle_trie_get(key),
         VerkleTrie::RocksdbTest(vt) => vt.verkle_trie_get(key),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.verkle_trie_get(key),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.verkle_trie_get(key),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.verkle_trie_get(key),
     }
 }
 
@@ -96,6 +108,8 @@ pub extern fn verkle_trie_insert(vt: *mut VerkleTrie, key: *const u8, value: *co
         VerkleTrie::MemoryPrelagrange(vt) => vt.verkle_trie_insert(key, value),
         VerkleTrie::RocksdbTest(vt) => vt.verkle_trie_insert(key, value),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.verkle_trie_insert(key, value),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.verkle_trie_insert(key, value),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.verkle_trie_insert(key, value),
     }
 }
 
@@ -107,6 +121,8 @@ pub extern fn get_root_hash(vt: *mut VerkleTrie) -> *const u8 {
         VerkleTrie::MemoryPrelagrange(vt) => vt.get_root_hash(),
         VerkleTrie::RocksdbTest(vt) => vt.get_root_hash(),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.get_root_hash(),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.get_root_hash(),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.get_root_hash(),
     }
 }
 
@@ -118,6 +134,8 @@ pub extern fn get_verkle_proof(vt: *mut VerkleTrie, key: *const u8) -> *mut Proo
         VerkleTrie::MemoryPrelagrange(vt) => vt.get_verkle_proof(key),
         VerkleTrie::RocksdbTest(vt) => vt.get_verkle_proof(key),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.get_verkle_proof(key),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.get_verkle_proof(key),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.get_verkle_proof(key),
     }
 }
 
@@ -129,6 +147,8 @@ pub extern fn verify_verkle_proof(vt: *mut VerkleTrie, ptr: *const u8, proof_len
         VerkleTrie::MemoryPrelagrange(vt) => vt.verify_verkle_proof(ptr, proof_len, key, value),
         VerkleTrie::RocksdbTest(vt) => vt.verify_verkle_proof(ptr, proof_len, key, value),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.verify_verkle_proof(ptr, proof_len, key, value),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.verify_verkle_proof(ptr, proof_len, key, value),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.verify_verkle_proof(ptr, proof_len, key, value),
     }
 }
 
@@ -140,6 +160,8 @@ pub extern fn get_verkle_proof_multiple(vt: *mut VerkleTrie, keys: *const [u8;32
         VerkleTrie::MemoryPrelagrange(vt) => vt.get_verkle_proof_multiple(keys, len),
         VerkleTrie::RocksdbTest(vt) => vt.get_verkle_proof_multiple(keys, len),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.get_verkle_proof_multiple(keys, len),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.get_verkle_proof_multiple(keys, len),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.get_verkle_proof_multiple(keys, len),
     }
 }
 
@@ -151,6 +173,8 @@ pub extern fn verify_verkle_proof_multiple(vt: *mut VerkleTrie, ptr: *const u8, 
         VerkleTrie::MemoryPrelagrange(vt) => vt.verify_verkle_proof_multiple(ptr, proof_len, keys, vals, len),
         VerkleTrie::RocksdbTest(vt) => vt.verify_verkle_proof_multiple(ptr, proof_len, keys, vals, len),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.verify_verkle_proof_multiple(ptr, proof_len, keys, vals, len),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.verify_verkle_proof_multiple(ptr, proof_len, keys, vals, len),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.verify_verkle_proof_multiple(ptr, proof_len, keys, vals, len),
     }
 }
 
@@ -162,6 +186,8 @@ pub extern fn verkle_trie_insert_multiple(vt: *mut VerkleTrie, keys: *const [u8;
         VerkleTrie::MemoryPrelagrange(vt) => vt.verkle_trie_insert_multiple(keys, vals, len),
         VerkleTrie::RocksdbTest(vt) => vt.verkle_trie_insert_multiple(keys, vals, len),
         VerkleTrie::RocksdbPrelagrange(vt) => vt.verkle_trie_insert_multiple(keys, vals, len),
+        VerkleTrie::RocksdbReadOnlyTest(vt) => vt.verkle_trie_insert_multiple(keys, vals, len),
+        VerkleTrie::RocksdbReadOnlyPrelagrange(vt) => vt.verkle_trie_insert_multiple(keys, vals, len),
     }
 }
 
