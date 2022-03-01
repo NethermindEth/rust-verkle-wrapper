@@ -11,8 +11,8 @@ crate-type = ["cdylib", "rlib"]
 
 
 [dependencies]
-verkle-trie = { git = "https://github.com/crate-crypto/rust-verkle" }
-verkle-db = { git = "https://github.com/crate-crypto/rust-verkle", features = ["rocks_db"] }
+verkle-trie = { git = "https://github.com/tanishqjasoria/rust-verkle" }
+verkle-db = { git = "https://github.com/tanishqjasoria/rust-verkle", features = ["rocks_db"] }
 tempfile = "3.2.0"
 bandersnatch = "0.1.1"
 ark-ff = { version = "^0.3.0", default-features = false }
