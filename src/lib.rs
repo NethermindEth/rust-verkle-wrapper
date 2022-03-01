@@ -451,3 +451,25 @@ test_model![
     gen_verify_proof,
     generate_proof_test
 ];
+
+test_model![
+    RocksdbReadOnlyTest;
+    RocksDb;
+    TestCommitment;
+    root_hash,
+    insert_fetch,
+    insert_account_fetch,
+    gen_verify_proof,
+    generate_proof_test
+];
+
+test_model![
+    RocksdbReadOnlyPrelagrange;
+    RocksDb;
+    PrecomputeLagrange;
+    root_hash,
+    insert_fetch,
+    insert_account_fetch,
+    gen_verify_proof,
+    generate_proof_test
+];
