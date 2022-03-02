@@ -121,8 +121,14 @@ pub extern fn verkle_trie_clear(vt: *mut VerkleTrie) {
     match _vt {
         VerkleTrie::MemoryTest(_vt) => (),
         VerkleTrie::MemoryPrelagrange(_vt) => (),
-        VerkleTrie::RocksdbTest(_vt) => (),
-        VerkleTrie::RocksdbPrelagrange(_vt) => (),
+        VerkleTrie::RocksdbTest(vt) => {
+            vt.storage.batch.clear();
+            vt.storage.cache.clear()
+        },
+        VerkleTrie::RocksdbPrelagrange(vt) => {
+            vt.storage.batch.clear();
+            vt.storage.cache.clear()
+        },
         VerkleTrie::RocksdbReadOnlyTest(vt) => {
             vt.storage.batch.clear();
             vt.storage.cache.clear()
@@ -284,6 +290,33 @@ mod test_helper {
         verkle_trie_insert(trie, one, one);
         verkle_trie_insert(trie, one_32, one);
         let val = verkle_trie_get(trie, one_32);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one);
+    }
+
+    pub fn insert_fetch_flush_clear(trie: *mut VerkleTrie) {
+        let _one:[u8;32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        let one: *const u8  = unsafe {transmute(Box::new(_one))};
+        let _one_32:[u8;32] = [1; 32];
+        let one_32 = unsafe {transmute(Box::new(_one_32))};
+        verkle_trie_insert(trie, one, one);
+        verkle_trie_insert(trie, one_32, one);
+        let val = verkle_trie_get(trie, one_32);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one);
+        verkle_trie_flush(trie);
+        verkle_trie_insert(trie, one, one_32);
+        let val = verkle_trie_get(trie, one);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one_32);
+        verkle_trie_clear(trie);
+        let val = verkle_trie_get(trie, one);
         let _val: Box<[u8;32]> = unsafe { transmute(val)};
         let result = * _val;
         assert_eq!(result, _one);
@@ -461,7 +494,8 @@ test_model![
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
-    generate_proof_test
+    generate_proof_test,
+    insert_fetch_flush_clear
 ];
 
 test_model![
@@ -483,7 +517,8 @@ test_model![
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
-    generate_proof_test
+    generate_proof_test,
+    insert_fetch_flush_clear
 ];
 
 test_model![
@@ -494,7 +529,8 @@ test_model![
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
-    generate_proof_test
+    generate_proof_test,
+    insert_fetch_flush_clear
 ];
 
 test_model![
@@ -505,5 +541,6 @@ test_model![
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
-    generate_proof_test
+    generate_proof_test,
+    insert_fetch_flush_clear
 ];
