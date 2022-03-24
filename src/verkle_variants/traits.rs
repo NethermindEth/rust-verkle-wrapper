@@ -106,5 +106,4 @@ pub trait FFI: TrieTrait {
 
 pub trait DB {
     fn create_db(path: &str) -> Self;
-    // fn get_trie(&mut self, commit_scheme: CommitScheme) -> *mut VerkleTrie;
 }

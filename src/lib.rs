@@ -67,7 +67,7 @@ pub extern fn create_verkle_db(
             .to_str().expect("Invalid pathname")
     };
 
-    let vt = match database_scheme {
+    let db = match database_scheme {
         DatabaseScheme::RocksDb => {
             let _db = db::VerkleRocksDb::create_db(db_path);
             VerkleDiskDb(_db)
@@ -81,7 +81,7 @@ pub extern fn create_verkle_db(
             VerkleReadOnlyDiskDb(_db)
         }
     };
-    let ret = unsafe { transmute (Box::new(vt))};
+    let ret = unsafe { transmute (Box::new(db))};
     ret
 }
 
@@ -532,7 +532,7 @@ mod test_helper {
 
         let tree_key_code_size:[u8;32] = [ 121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81,
             186, 89, 19, 191, 13, 107, 197, 120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 4];
-        
+
         let empty_code_hash_value:[u8;32] = [ 197, 210, 70, 1, 134, 247, 35, 60, 146, 126, 125, 178,
             220, 199, 3, 192, 229, 0, 182, 83, 202, 130, 39, 59, 123, 250, 216, 4, 93, 133, 164, 112];
 
@@ -566,7 +566,7 @@ macro_rules! test_model {
         mod $MD {
             use super::*;
             use tempfile::Builder;
-            
+
             $(
                 #[test]
                 fn $FN() {
@@ -659,7 +659,7 @@ test_model![
 mod tests {
     use std::intrinsics::transmute;
     use tempfile::Builder;
-    use crate::{CommitScheme, create_trie_from_db, create_verkle_db, DatabaseScheme, verkle_trie_get, verkle_trie_insert};
+    use crate::{CommitScheme, create_trie_from_db, create_verkle_db, DatabaseScheme, verkle_trie_flush, verkle_trie_get, verkle_trie_insert};
     use crate::test_helper::str_to_cstr;
 
     #[test]
@@ -683,9 +683,11 @@ mod tests {
         let _val: Box<[u8;32]> = unsafe { transmute(val)};
         let result = * _val;
         assert_eq!(result, _one);
+        // verkle_trie_flush(trie);
 
         let trie_2 = create_trie_from_db(CommitScheme::TestCommitment, db);
-        let val = verkle_trie_get(trie, one_32);
+        let val = verkle_trie_get(trie_2, one_32);
+        val.is_null();
     }
 
     #[test]
