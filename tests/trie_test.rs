@@ -1,9 +1,8 @@
 use rust_verkle::*;
 
 #[cfg(test)]
-mod test_helper {
+mod trie_test_helper {
     use std::ffi::CStr;
-    use super::*;
     use std::mem::transmute;
     use std::os::raw::c_char;
     use rust_verkle::*;
@@ -14,22 +13,6 @@ mod test_helper {
             CStr::from_bytes_with_nul_unchecked(byte)
                 .as_ptr()
         }
-    }
-
-    pub fn create_db_trie(trie: *mut VerkleTrie) {
-        let _one:[u8;32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ];
-        let one: *const u8  = unsafe {transmute(Box::new(_one))};
-        let _one_32:[u8;32] = [1; 32];
-        let one_32 = unsafe {transmute(Box::new(_one_32))};
-        verkle_trie_insert(trie, one, one);
-        verkle_trie_insert(trie, one_32, one);
-        let val = verkle_trie_get(trie, one_32);
-        let _val: Box<[u8;32]> = unsafe { transmute(val)};
-        let result = * _val;
-        assert_eq!(result, _one);
     }
 
     pub fn root_hash(trie: *mut VerkleTrie) {
@@ -204,37 +187,37 @@ mod test_helper {
     }
 }
 
-macro_rules! test_model {
+macro_rules! trie_test {
     (
-        $MD: ident;   /// Module Name
-        $DB: ident;  /// Database enum
-        $CMT: ident; /// Commit enum
-        $($FN: ident),*  /// list of functions to implement
+        $module_name: ident;   // Module Name
+        $database_enum: ident;  // Database enum
+        $commit_enum: ident; // Commit enum
+        $($function_name: ident),*  // list of functions to implement
     ) => {
         #[cfg(test)]
         #[allow(non_snake_case)]
-        mod $MD {
+        mod $module_name {
             use super::*;
             use tempfile::Builder;
 
             $(
                 #[test]
-                fn $FN() {
+                fn $function_name() {
                     let dir = Builder::new().tempdir().unwrap();
                     let path = dir.path().to_str().unwrap();
                     let trie = verkle_trie_new(
-                        DatabaseScheme::$DB,
-                        CommitScheme::$CMT,
-                        test_helper::str_to_cstr(path),
+                        DatabaseScheme::$database_enum,
+                        CommitScheme::$commit_enum,
+                        trie_test_helper::str_to_cstr(path),
                     );
-                    test_helper::$FN(trie);
+                    trie_test_helper::$function_name(trie);
                 }
             )*
         }
     };
 }
 
-test_model![
+trie_test![
     MemoryTest;
     MemoryDb;
     TestCommitment;
@@ -245,7 +228,7 @@ test_model![
     generate_proof_test
 ];
 
-test_model![
+trie_test![
     RocksdbTest;
     RocksDb;
     TestCommitment;
@@ -257,7 +240,7 @@ test_model![
     insert_fetch_flush_clear
 ];
 
-test_model![
+trie_test![
     MemoryPrelagrange;
     MemoryDb;
     PrecomputeLagrange;
@@ -268,7 +251,7 @@ test_model![
     generate_proof_test
 ];
 
-test_model![
+trie_test![
     RocksdbPrelagrange;
     RocksDb;
     PrecomputeLagrange;
@@ -280,7 +263,7 @@ test_model![
     insert_fetch_flush_clear
 ];
 
-test_model![
+trie_test![
     RocksdbReadOnlyTest;
     RocksDb;
     TestCommitment;
@@ -292,7 +275,7 @@ test_model![
     insert_fetch_flush_clear
 ];
 
-test_model![
+trie_test![
     RocksdbReadOnlyPrelagrange;
     RocksDb;
     PrecomputeLagrange;
@@ -305,27 +288,27 @@ test_model![
 ];
 
 
-macro_rules! test_model_db {
+macro_rules! trie_from_db_test {
     (
-        $MD: ident;   /// Module Name
-        $DB: ident;  /// Database enum
-        $CMT: ident; /// Commit enum
-        $($FN: ident),*  /// list of functions to implement
+        $module_name: ident;   // Module Name
+        $database_enum: ident;  // Database enum
+        $commit_enum: ident; // Commit enum
+        $($function_name: ident),*  // list of functions to implement
     ) => {
         #[cfg(test)]
         #[allow(non_snake_case)]
-        mod $MD {
+        mod $module_name {
             use super::*;
             use tempfile::Builder;
 
             $(
                 #[test]
-                fn $FN() {
+                fn $function_name() {
                     let dir = Builder::new().tempdir().unwrap();
                     let path = dir.path().to_str().unwrap();
-                    let db = create_verkle_db(DatabaseScheme::$DB, test_helper::str_to_cstr(path));
-                    let trie = create_trie_from_db(CommitScheme::$CMT, db);
-                    test_helper::$FN(trie);
+                    let db = create_verkle_db(DatabaseScheme::$database_enum, trie_test_helper::str_to_cstr(path));
+                    let trie = create_trie_from_db(CommitScheme::$commit_enum, db);
+                    trie_test_helper::$function_name(trie);
                 }
             )*
         }
@@ -333,7 +316,7 @@ macro_rules! test_model_db {
 }
 
 
-test_model_db![
+trie_from_db_test![
     MemoryTestDB;
     MemoryDb;
     TestCommitment;
@@ -344,7 +327,7 @@ test_model_db![
     generate_proof_test
 ];
 
-test_model_db![
+trie_from_db_test![
     RocksdbTestDB;
     RocksDb;
     TestCommitment;
@@ -356,7 +339,7 @@ test_model_db![
     insert_fetch_flush_clear
 ];
 
-test_model_db![
+trie_from_db_test![
     MemoryPrelagrangeDB;
     MemoryDb;
     PrecomputeLagrange;
@@ -367,7 +350,7 @@ test_model_db![
     generate_proof_test
 ];
 
-test_model_db![
+trie_from_db_test![
     RocksdbPrelagrangeDB;
     RocksDb;
     PrecomputeLagrange;
@@ -379,7 +362,7 @@ test_model_db![
     insert_fetch_flush_clear
 ];
 
-test_model_db![
+trie_from_db_test![
     RocksdbReadOnlyTestDB;
     RocksDb;
     TestCommitment;
@@ -391,7 +374,7 @@ test_model_db![
     insert_fetch_flush_clear
 ];
 
-test_model_db![
+trie_from_db_test![
     RocksdbReadOnlyPrelagrangeDB;
     RocksDb;
     PrecomputeLagrange;
