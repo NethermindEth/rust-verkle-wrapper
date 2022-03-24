@@ -11,28 +11,52 @@ use verkle_trie::{
     constants::CRS
 
 };
-use crate::verkle_variants::traits::FFI;
+use crate::verkle_variants::traits::{DB, FFI};
 
 use ark_ec::ProjectiveCurve;
 use verkle_trie::database::memory_db::MemoryDb;
 use crate::memory_db::VerkleMemoryDb;
+use crate::{Database, Proof};
+use crate::verkle_variants::db::{VerkleMemDb, VerkleRocksDb};
 
 
-pub type VerkleTrieRocksDBTest = Trie<VerkleDb<RocksDb>, TestCommitter>;
+pub type VerkleTrieRocksDBTest = Trie<VerkleRocksDb, TestCommitter>;
+
 impl FFI for VerkleTrieRocksDBTest {
+
+    type DbObject = VerkleRocksDb;
+
     fn verkle_trie_new(path: &str) -> Self {
-        let _db = VerkleDb::from_path(path);
+        let db = VerkleRocksDb::create_db(path);
         let committer = TestCommitter;
-        let config = Config{ db: _db, committer };
+        let config = Config{ db, committer };
+        let mut _trie = Trie::new(config);
+        _trie
+    }
+
+    fn create_from_db(db: VerkleRocksDb) -> Self {
+        let committer = TestCommitter;
+        let config = Config{ db, committer };
         let mut _trie = Trie::new(config);
         _trie
     }
 }
 
-pub type VerkleTrieRocksDBPreCompute = Trie<VerkleDb<RocksDb>, PrecomputeLagrange>;
+pub type VerkleTrieRocksDBPreCompute = Trie<VerkleRocksDb, PrecomputeLagrange>;
 impl FFI for VerkleTrieRocksDBPreCompute {
+
+    type DbObject = VerkleRocksDb;
+
     fn verkle_trie_new(path: &str) -> Self {
-        let db = VerkleDb::from_path(path);
+        let db = VerkleRocksDb::create_db(path);
+        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
+        let committer = PrecomputeLagrange::precompute(&g_aff);
+        let config = Config { db, committer};
+        let mut _trie = Trie::new(config);
+        _trie
+    }
+
+    fn create_from_db(db: VerkleRocksDb)-> Self {
         let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
         let committer = PrecomputeLagrange::precompute(&g_aff);
         let config = Config { db, committer};
@@ -42,10 +66,20 @@ impl FFI for VerkleTrieRocksDBPreCompute {
 }
 
 
-pub type VerkleTrieMemoryTest = Trie<VerkleMemoryDb, TestCommitter>;
+pub type VerkleTrieMemoryTest = Trie<VerkleMemDb, TestCommitter>;
 impl FFI for VerkleTrieMemoryTest {
+
+    type DbObject = VerkleMemDb;
+
     fn verkle_trie_new(_path: &str) -> Self {
-        let db = VerkleMemoryDb::new();
+        let db = VerkleMemDb::create_db("");
+        let committer = TestCommitter;
+        let config = Config { db, committer};
+        let mut _trie = Trie::new(config);
+        _trie
+    }
+
+    fn create_from_db(db: VerkleMemDb) -> Self {
         let committer = TestCommitter;
         let config = Config { db, committer};
         let mut _trie = Trie::new(config);
@@ -54,10 +88,21 @@ impl FFI for VerkleTrieMemoryTest {
 }
 
 
-pub type VerkleTrieMemoryPreCompute= Trie<VerkleMemoryDb, PrecomputeLagrange>;
+pub type VerkleTrieMemoryPreCompute= Trie<VerkleMemDb, PrecomputeLagrange>;
 impl FFI for VerkleTrieMemoryPreCompute {
+
+    type DbObject = VerkleMemDb;
+
     fn verkle_trie_new(_path: &str) -> Self {
-        let db = VerkleMemoryDb::new();
+        let db = VerkleMemDb::create_db("");
+        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
+        let committer = PrecomputeLagrange::precompute(&g_aff);
+        let config = Config { db, committer};
+        let mut _trie = Trie::new(config);
+        _trie
+    }
+
+    fn create_from_db(db: VerkleMemDb) -> Self {
         let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
         let committer = PrecomputeLagrange::precompute(&g_aff);
         let config = Config { db, committer};

@@ -8,10 +8,16 @@ use std::convert::TryInto;
 use verkle_variants::{
     trie,
     traits::FFI,
+    db,
 };
 use std::ffi::CStr;
+use std::ops::Deref;
 use std::os::raw::c_char;
 use verkle_trie::database::Flush;
+use crate::Database::{VerkleDiskDb, VerkleReadOnlyDiskDb};
+use crate::Database::VerkleMemoryDb;
+use crate::db::VerkleMemDb;
+use crate::verkle_variants::traits::DB;
 
 #[repr(C)]
 pub enum VerkleTrie {
@@ -21,6 +27,13 @@ pub enum VerkleTrie {
     RocksdbPrelagrange(trie::VerkleTrieRocksDBPreCompute),
     RocksdbReadOnlyTest(trie::VerkleTrieRocksDBTest),
     RocksdbReadOnlyPrelagrange(trie::VerkleTrieRocksDBPreCompute),
+}
+
+#[repr(C)]
+pub enum Database {
+    VerkleDiskDb(db::VerkleRocksDb),
+    VerkleReadOnlyDiskDb(db::VerkleRocksDb),
+    VerkleMemoryDb(db::VerkleMemDb)
 }
 
 #[repr(C)]
@@ -41,6 +54,36 @@ pub enum CommitScheme {
     TestCommitment,
     PrecomputeLagrange,
 }
+
+#[no_mangle]
+pub extern fn create_verkle_db(
+    database_scheme: DatabaseScheme,
+    db_path: *const c_char
+) -> *mut Database {
+
+    let db_path = unsafe {
+        CStr::from_ptr(db_path)
+            .to_str().expect("Invalid pathname")
+    };
+
+    let vt = match database_scheme {
+        DatabaseScheme::RocksDb => {
+            let _db = db::VerkleRocksDb::create_db(db_path);
+            VerkleDiskDb(_db)
+        },
+        DatabaseScheme::MemoryDb =>  {
+            let _db = db::VerkleMemDb::create_db(db_path);
+            VerkleMemoryDb(_db)
+        },
+        DatabaseScheme::RocksDbReadOnly => {
+            let _db = db::VerkleRocksDb::create_db(db_path);
+            VerkleReadOnlyDiskDb(_db)
+        }
+    };
+    let ret = unsafe { transmute (Box::new(vt))};
+    ret
+}
+
 
 #[no_mangle]
 pub extern fn verkle_trie_new(
@@ -114,6 +157,47 @@ pub extern fn verkle_trie_flush(vt: *mut VerkleTrie) {
         VerkleTrie::RocksdbReadOnlyTest(_vt) => (),
         VerkleTrie::RocksdbReadOnlyPrelagrange(_vt) => (),
     }
+}
+
+
+#[no_mangle]
+pub extern fn create_trie_from_db(commit_scheme: CommitScheme, db: *mut Database) -> *mut VerkleTrie {
+    let _db: Database = *unsafe { Box::from_raw(db) };
+    let vt = match _db {
+        Database::VerkleDiskDb(db) => match commit_scheme {
+            CommitScheme::TestCommitment => {
+                let _vt = trie::VerkleTrieRocksDBTest::create_from_db( db);
+                VerkleTrie::RocksdbTest(_vt)
+            },
+            CommitScheme::PrecomputeLagrange => {
+                let _vt = trie::VerkleTrieRocksDBPreCompute::create_from_db( db);
+                VerkleTrie::RocksdbPrelagrange(_vt)
+            },
+        },
+        Database::VerkleMemoryDb(db) => match commit_scheme {
+            CommitScheme::TestCommitment => {
+                let _vt = trie::VerkleTrieMemoryTest::create_from_db(db);
+                VerkleTrie::MemoryTest(_vt)
+            },
+            CommitScheme::PrecomputeLagrange => {
+                let _vt = trie::VerkleTrieMemoryPreCompute::create_from_db(db);
+                VerkleTrie::MemoryPrelagrange(_vt)
+            },
+        },
+        Database::VerkleReadOnlyDiskDb(db) => match commit_scheme {
+            CommitScheme::TestCommitment => {
+                let _vt = trie::VerkleTrieRocksDBTest::create_from_db(db);
+                VerkleTrie::RocksdbReadOnlyTest(_vt)
+            },
+            CommitScheme::PrecomputeLagrange => {
+                let _vt = trie::VerkleTrieRocksDBPreCompute::create_from_db(db);
+                VerkleTrie::RocksdbReadOnlyPrelagrange(_vt)
+            },
+        }
+    };
+
+    let ret = unsafe { transmute (Box::new(vt))};
+    ret
 }
 
 
@@ -279,6 +363,22 @@ mod test_helper {
             CStr::from_bytes_with_nul_unchecked(byte)
             .as_ptr()
         }
+    }
+
+    pub fn create_db_trie(trie: *mut VerkleTrie) {
+        let _one:[u8;32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        let one: *const u8  = unsafe {transmute(Box::new(_one))};
+        let _one_32:[u8;32] = [1; 32];
+        let one_32 = unsafe {transmute(Box::new(_one_32))};
+        verkle_trie_insert(trie, one, one);
+        verkle_trie_insert(trie, one_32, one);
+        let val = verkle_trie_get(trie, one_32);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one);
     }
 
     pub fn root_hash(trie: *mut VerkleTrie) {
@@ -552,3 +652,62 @@ test_model![
     generate_proof_test,
     insert_fetch_flush_clear
 ];
+
+
+#[cfg(test)]
+mod tests {
+    use std::intrinsics::transmute;
+    use tempfile::Builder;
+    use crate::{CommitScheme, create_trie_from_db, create_verkle_db, DatabaseScheme, verkle_trie_get, verkle_trie_insert};
+    use crate::test_helper::str_to_cstr;
+
+    #[test]
+    fn create_db_trie_rocks() {
+        let dir = Builder::new().tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        let db = create_verkle_db(DatabaseScheme::RocksDb, str_to_cstr(path));
+
+        let trie = create_trie_from_db(CommitScheme::TestCommitment, db);
+
+        let _one:[u8;32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        let one: *const u8  = unsafe {transmute(Box::new(_one))};
+        let _one_32:[u8;32] = [1; 32];
+        let one_32 = unsafe {transmute(Box::new(_one_32))};
+        verkle_trie_insert(trie, one, one);
+        verkle_trie_insert(trie, one_32, one);
+        let val = verkle_trie_get(trie, one_32);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one);
+
+        let trie_2 = create_trie_from_db(CommitScheme::TestCommitment, db);
+        let val = verkle_trie_get(trie, one_32);
+    }
+
+    #[test]
+    fn create_db_trie_memory() {
+        let dir = Builder::new().tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+        let db = create_verkle_db(DatabaseScheme::MemoryDb, str_to_cstr(path));
+
+        let trie = create_trie_from_db(CommitScheme::TestCommitment, db);
+
+        let _one:[u8;32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        let one: *const u8  = unsafe {transmute(Box::new(_one))};
+        let _one_32:[u8;32] = [1; 32];
+        let one_32 = unsafe {transmute(Box::new(_one_32))};
+        verkle_trie_insert(trie, one, one);
+        verkle_trie_insert(trie, one_32, one);
+        let val = verkle_trie_get(trie, one_32);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one);
+    }
+
+}

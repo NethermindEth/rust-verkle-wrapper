@@ -9,12 +9,19 @@ use crate::{
     get_array_from_slice_argument,
     get_vector_from_slice_argument,
     proof_ptr_to_proof_vec,
+    Database,
+    CommitScheme,
+    VerkleTrie
 };
 
 pub trait FFI: TrieTrait {
 
+    type DbObject;
+
     fn verkle_trie_new(path: &str) -> Self;
-    
+
+    fn create_from_db(db: Self::DbObject) -> Self;
+
     fn verkle_trie_get(&mut self, key: *const u8) -> *const u8 {
         let _key = get_array_from_slice_argument(key);
         let _result = &self.get(_key);
@@ -94,4 +101,10 @@ pub trait FFI: TrieTrait {
         }
         self.insert(itr.into_iter());
     }
+}
+
+
+pub trait DB {
+    fn create_db(path: &str) -> Self;
+    // fn get_trie(&mut self, commit_scheme: CommitScheme) -> *mut VerkleTrie;
 }
