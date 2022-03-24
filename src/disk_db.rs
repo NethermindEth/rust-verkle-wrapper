@@ -1,15 +1,26 @@
+use verkle_trie::database::memory_db::MemoryDb;
+use verkle_trie::database::{BranchChild, BranchMeta, Flush, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb};
 use std::collections::HashMap;
 use std::mem::transmute;
-use verkle_trie::database::{BranchChild, BranchMeta, Flush, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb};
-use verkle_trie::database::memory_db::MemoryDb;
+use verkle_db::{BareMetalDiskDb, BareMetalKVDb, BatchDB, BatchWriter};
+use verkle_db::{RocksDb};
+use verkle_trie::{
+    database::generic::GenericBatchDB
+};
+use verkle_trie::database::generic::GenericBatchWriter;
+
+// A convenient structure that allows the end user to just implement BatchDb and BareMetalDiskDb
+// Then the methods needed for the Trie are auto implemented. In  particular, ReadOnlyHigherDb and WriteOnlyHigherDb
+// are implemented
 
 // All nodes at this level or above will be cached in memory
 const CACHE_DEPTH: u8 = 4;
 
-pub struct VerkleMemoryDb {
-    // The underlying key value database - use this for test
+// A wrapper database for those that just want to implement the permanent storage
+pub struct VerkleDiskDb<Storage: 'static> {
+    // The underlying key value database
     // We try to avoid fetching from this, and we only store at the end of a batch insert
-    pub storage: &'static mut MemoryDb,
+    pub storage: &'static mut GenericBatchDB<Storage>,
     // This stores the key-value pairs that we need to insert into the storage
     // This is flushed after every batch insert
     pub batch: MemoryDb,
@@ -18,27 +29,73 @@ pub struct VerkleMemoryDb {
     pub cache: MemoryDb,
 }
 
-impl VerkleMemoryDb {
-    pub fn new(storage: &'static mut MemoryDb) -> Self {
-        VerkleMemoryDb {
+impl<S: BareMetalDiskDb>  VerkleDiskDb<S> {
+    pub(crate) fn new(storage: &'static mut GenericBatchDB<S>) -> Self {
+        VerkleDiskDb {
             storage,
-            batch: MemoryDb::new(),
-            cache: MemoryDb::new(),
-        }
-    }
-
-    pub fn new_db() -> Self {
-        let db: &mut MemoryDb = unsafe { transmute (Box::new(MemoryDb::new()))};
-        VerkleMemoryDb {
-            storage: db,
             batch: MemoryDb::new(),
             cache: MemoryDb::new(),
         }
     }
 }
 
-impl ReadOnlyHigherDb for VerkleMemoryDb {
+impl<S: BareMetalDiskDb> BareMetalDiskDb for VerkleDiskDb<S> {
+    fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
+        let _db: GenericBatchDB<S> = GenericBatchDB::from_path(path);
+        let db: &mut GenericBatchDB<S> = unsafe { transmute (Box::new(_db))};
+        VerkleDiskDb {
+            storage: db,
 
+            batch: MemoryDb::new(),
+            cache: MemoryDb::new(),
+        }
+    }
+
+    const DEFAULT_PATH: &'static str = S::DEFAULT_PATH;
+}
+
+impl<S: BatchDB> Flush for VerkleDiskDb<S> {
+    // flush the batch to the storage
+    fn flush(&mut self) {
+        let writer = S::BatchWrite::new();
+        let mut w = GenericBatchWriter { inner: writer };
+
+        let now = std::time::Instant::now();
+
+        for (key, value) in self.batch.leaf_table.iter() {
+            w.insert_leaf(*key, *value, 0);
+        }
+
+        for (key, meta) in self.batch.stem_table.iter() {
+            w.insert_stem(*key, *meta, 0);
+        }
+
+        for (branch_id, b_child) in self.batch.branch_table.iter() {
+            let branch_id = branch_id.clone();
+            match b_child {
+                BranchChild::Stem(stem_id) => {
+                    w.add_stem_as_branch_child(branch_id, *stem_id, 0);
+                }
+                BranchChild::Branch(b_meta) => {
+                    w.insert_branch(branch_id, *b_meta, 0);
+                }
+            };
+        }
+
+        let num_items = self.batch.num_items();
+        println!(
+            "write to batch time: {}, item count : {}",
+            now.elapsed().as_millis(),
+            num_items
+        );
+
+        self.storage.flush(w.inner);
+
+        self.batch.clear();
+    }
+}
+
+impl<S: BareMetalKVDb> ReadOnlyHigherDb for VerkleDiskDb<S> {
     fn get_leaf(&self, key: [u8; 32]) -> Option<[u8; 32]> {
         // First try to get it from cache
         if let Some(val) = self.cache.get_leaf(key) {
@@ -153,7 +210,7 @@ impl ReadOnlyHigherDb for VerkleMemoryDb {
 }
 
 // Always save in the permanent storage and only save in the memorydb if the depth is <= cache depth
-impl WriteOnlyHigherDb for VerkleMemoryDb {
+impl<S> WriteOnlyHigherDb for VerkleDiskDb<S> {
     fn insert_leaf(&mut self, key: [u8; 32], value: [u8; 32], depth: u8) -> Option<Vec<u8>> {
         if depth <= CACHE_DEPTH {
             self.cache.insert_leaf(key, value, depth);
@@ -187,41 +244,5 @@ impl WriteOnlyHigherDb for VerkleMemoryDb {
             self.cache.insert_branch(key.clone(), meta, depth);
         }
         self.batch.insert_branch(key, meta, depth)
-    }
-}
-
-impl Flush for VerkleMemoryDb {
-    fn flush(&mut self) {
-
-        let now = std::time::Instant::now();
-
-        for (key, value) in self.batch.leaf_table.iter() {
-            self.storage.insert_leaf(*key, *value, 0);
-        }
-
-        for (key, meta) in self.batch.stem_table.iter() {
-            self.storage.insert_stem(*key, *meta, 0);
-        }
-
-        for (branch_id, b_child) in self.batch.branch_table.iter() {
-            let branch_id = branch_id.clone();
-            match b_child {
-                BranchChild::Stem(stem_id) => {
-                    self.storage.add_stem_as_branch_child(branch_id, *stem_id, 0);
-                }
-                BranchChild::Branch(b_meta) => {
-                    self.storage.insert_branch(branch_id, *b_meta, 0);
-                }
-            };
-        }
-
-        let num_items = self.batch.num_items();
-        println!(
-            "write to batch time: {}, item count : {}",
-            now.elapsed().as_millis(),
-            num_items
-        );
-
-        self.batch.clear();
     }
 }

@@ -1,6 +1,7 @@
 #![feature(vec_into_raw_parts)]
 mod verkle_variants;
 mod memory_db;
+mod disk_db;
 
 use std::slice;
 use std::mem::transmute;
@@ -162,7 +163,7 @@ pub extern fn verkle_trie_flush(vt: *mut VerkleTrie) {
 
 #[no_mangle]
 pub extern fn create_trie_from_db(commit_scheme: CommitScheme, db: *mut Database) -> *mut VerkleTrie {
-    let _db: Database = *unsafe { Box::from_raw(db) };
+    let _db = unsafe{&mut *db};
     let vt = match _db {
         Database::VerkleDiskDb(db) => match commit_scheme {
             CommitScheme::TestCommitment => {

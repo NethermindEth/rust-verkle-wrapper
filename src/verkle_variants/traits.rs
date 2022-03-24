@@ -20,7 +20,7 @@ pub trait FFI: TrieTrait {
 
     fn verkle_trie_new(path: &str) -> Self;
 
-    fn create_from_db(db: Self::DbObject) -> Self;
+    fn create_from_db(db: &'static mut Self::DbObject) -> Self;
 
     fn verkle_trie_get(&mut self, key: *const u8) -> *const u8 {
         let _key = get_array_from_slice_argument(key);
