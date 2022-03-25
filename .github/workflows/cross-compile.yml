@@ -43,8 +43,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: setup
-        run: sudo apt install gcc-arm-linux-gnueabi g++-arm-linux-gnueabi gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
+#      - name: setup
+#        run: sudo apt install gcc-arm-linux-gnueabi g++-arm-linux-gnueabi gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
       - name: make
         run: make build-linux-all
       - name: download-directory
