@@ -64,6 +64,31 @@ mod trie_test_helper {
         assert_eq!(result, _one);
     }
 
+    pub fn insert_fetch_flush_clear_readonly(trie: *mut VerkleTrie) {
+        let _one:[u8;32] = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ];
+        let one: *const u8  = unsafe {transmute(Box::new(_one))};
+        let _one_32:[u8;32] = [1; 32];
+        let one_32 = unsafe {transmute(Box::new(_one_32))};
+        verkle_trie_insert(trie, one, one);
+        verkle_trie_insert(trie, one_32, one);
+        let val = verkle_trie_get(trie, one_32);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one);
+        verkle_trie_flush(trie);
+        verkle_trie_insert(trie, one, one_32);
+        let val = verkle_trie_get(trie, one);
+        let _val: Box<[u8;32]> = unsafe { transmute(val)};
+        let result = * _val;
+        assert_eq!(result, _one_32);
+        verkle_trie_clear(trie);
+        let val = verkle_trie_get(trie, one);
+        val.is_null();
+    }
+
     pub fn insert_account_fetch(trie: *mut VerkleTrie) {
         let tree_key_version:[u8;32] = [ 121, 85, 7, 198, 131, 230, 143, 90, 165, 129, 173, 81, 186,
             89, 19, 191, 13, 107, 197, 120, 243, 229, 224, 183, 72, 25, 6, 8, 210, 159, 31, 0];
@@ -265,26 +290,26 @@ trie_test![
 
 trie_test![
     RocksdbReadOnlyTest;
-    RocksDb;
+    RocksDbReadOnly;
     TestCommitment;
     root_hash,
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
     generate_proof_test,
-    insert_fetch_flush_clear
+    insert_fetch_flush_clear_readonly
 ];
 
 trie_test![
     RocksdbReadOnlyPrelagrange;
-    RocksDb;
+    RocksDbReadOnly;
     PrecomputeLagrange;
     root_hash,
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
     generate_proof_test,
-    insert_fetch_flush_clear
+    insert_fetch_flush_clear_readonly
 ];
 
 
@@ -364,24 +389,24 @@ trie_from_db_test![
 
 trie_from_db_test![
     RocksdbReadOnlyTestDB;
-    RocksDb;
+    RocksDbReadOnly;
     TestCommitment;
     root_hash,
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
     generate_proof_test,
-    insert_fetch_flush_clear
+    insert_fetch_flush_clear_readonly
 ];
 
 trie_from_db_test![
     RocksdbReadOnlyPrelagrangeDB;
-    RocksDb;
+    RocksDbReadOnly;
     PrecomputeLagrange;
     root_hash,
     insert_fetch,
     insert_account_fetch,
     gen_verify_proof,
     generate_proof_test,
-    insert_fetch_flush_clear
+    insert_fetch_flush_clear_readonly
 ];
