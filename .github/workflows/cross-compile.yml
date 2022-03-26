@@ -9,7 +9,17 @@ on:
 
 jobs:
 
+  test-linux-setup:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v2
+        - name: setup
+          run: sudo apt update && sudo apt install gcc-arm-linux-gnueabi g++-arm-linux-gnueabi gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
+        - name: make
+          run: make build-linux-all
+
   build-osx:
+    needs: test-linux-setup
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
@@ -44,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: setup
-        run: sudo apt install gcc-arm-linux-gnueabi g++-arm-linux-gnueabi gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
+        run: sudo apt update && sudo apt install gcc-arm-linux-gnueabi g++-arm-linux-gnueabi gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
       - name: make
         run: make build-linux-all
       - name: download-directory
