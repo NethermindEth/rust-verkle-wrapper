@@ -1,13 +1,13 @@
-use verkle_trie::database::memory_db::MemoryDb;
-use verkle_trie::database::{BranchChild, BranchMeta, Flush, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb};
 use std::collections::HashMap;
 use std::mem::transmute;
+use verkle_db::RocksDb;
 use verkle_db::{BareMetalDiskDb, BareMetalKVDb, BatchDB, BatchWriter};
-use verkle_db::{RocksDb};
-use verkle_trie::{
-    database::generic::GenericBatchDB
-};
+use verkle_trie::database::generic::GenericBatchDB;
 use verkle_trie::database::generic::GenericBatchWriter;
+use verkle_trie::database::memory_db::MemoryDb;
+use verkle_trie::database::{
+    BranchChild, BranchMeta, Flush, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb,
+};
 
 // A convenient structure that allows the end user to just implement BatchDb and BareMetalDiskDb
 // Then the methods needed for the Trie are auto implemented. In  particular, ReadOnlyHigherDb and WriteOnlyHigherDb
@@ -29,7 +29,7 @@ pub struct VerkleDiskDb<Storage: 'static> {
     pub cache: MemoryDb,
 }
 
-impl<S: BareMetalDiskDb>  VerkleDiskDb<S> {
+impl<S: BareMetalDiskDb> VerkleDiskDb<S> {
     pub(crate) fn new(storage: &'static mut GenericBatchDB<S>) -> Self {
         VerkleDiskDb {
             storage,
@@ -42,7 +42,7 @@ impl<S: BareMetalDiskDb>  VerkleDiskDb<S> {
 impl<S: BareMetalDiskDb> BareMetalDiskDb for VerkleDiskDb<S> {
     fn from_path<P: AsRef<std::path::Path>>(path: P) -> Self {
         let _db: GenericBatchDB<S> = GenericBatchDB::from_path(path);
-        let db: &mut GenericBatchDB<S> = unsafe { transmute (Box::new(_db))};
+        let db: &mut GenericBatchDB<S> = unsafe { transmute(Box::new(_db)) };
         VerkleDiskDb {
             storage: db,
 

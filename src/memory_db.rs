@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::mem::transmute;
-use verkle_trie::database::{BranchChild, BranchMeta, Flush, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb};
 use verkle_trie::database::memory_db::MemoryDb;
+use verkle_trie::database::{
+    BranchChild, BranchMeta, Flush, ReadOnlyHigherDb, StemMeta, WriteOnlyHigherDb,
+};
 
 // All nodes at this level or above will be cached in memory
 const CACHE_DEPTH: u8 = 4;
@@ -28,7 +30,7 @@ impl VerkleMemoryDb {
     }
 
     pub fn new_db() -> Self {
-        let db: &mut MemoryDb = unsafe { transmute (Box::new(MemoryDb::new()))};
+        let db: &mut MemoryDb = unsafe { transmute(Box::new(MemoryDb::new())) };
         VerkleMemoryDb {
             storage: db,
             batch: MemoryDb::new(),
@@ -38,7 +40,6 @@ impl VerkleMemoryDb {
 }
 
 impl ReadOnlyHigherDb for VerkleMemoryDb {
-
     fn get_leaf(&self, key: [u8; 32]) -> Option<[u8; 32]> {
         // First try to get it from cache
         if let Some(val) = self.cache.get_leaf(key) {
@@ -192,7 +193,6 @@ impl WriteOnlyHigherDb for VerkleMemoryDb {
 
 impl Flush for VerkleMemoryDb {
     fn flush(&mut self) {
-
         let now = std::time::Instant::now();
 
         for (key, value) in self.batch.leaf_table.iter() {
@@ -207,7 +207,8 @@ impl Flush for VerkleMemoryDb {
             let branch_id = branch_id.clone();
             match b_child {
                 BranchChild::Stem(stem_id) => {
-                    self.storage.add_stem_as_branch_child(branch_id, *stem_id, 0);
+                    self.storage
+                        .add_stem_as_branch_child(branch_id, *stem_id, 0);
                 }
                 BranchChild::Branch(b_meta) => {
                     self.storage.insert_branch(branch_id, *b_meta, 0);
