@@ -40,7 +40,8 @@ impl FFI for VerkleTrieRocksDBPreCompute {
 
     fn verkle_trie_new(path: &str) -> Self {
         let db = VerkleDiskDb::from_path(path);
-        let committer = PrecomputeLagrange::precompute(&CRS.G);
+        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
+        let committer = PrecomputeLagrange::precompute(&g_aff);
         let config = Config { db, committer };
         let mut _trie = Trie::new(config);
         _trie
@@ -48,7 +49,8 @@ impl FFI for VerkleTrieRocksDBPreCompute {
 
     fn create_from_db(db: &'static mut VerkleRocksDb) -> Self {
         let _db = VerkleDiskDb::new(db);
-        let committer = PrecomputeLagrange::precompute(&CRS.G);
+        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
+        let committer = PrecomputeLagrange::precompute(&g_aff);
         let config = Config { db: _db, committer };
         let mut _trie = Trie::new(config);
         _trie
@@ -82,7 +84,8 @@ impl FFI for VerkleTrieMemoryPreCompute {
 
     fn verkle_trie_new(_path: &str) -> Self {
         let db = VerkleMemoryDb::new_db();
-        let committer = PrecomputeLagrange::precompute(&CRS.G);
+        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
+        let committer = PrecomputeLagrange::precompute(&g_aff);
         let config = Config { db, committer };
         let mut _trie = Trie::new(config);
         _trie
@@ -90,7 +93,8 @@ impl FFI for VerkleTrieMemoryPreCompute {
 
     fn create_from_db(db: &'static mut VerkleMemDb) -> Self {
         let _db = VerkleMemoryDb::new(db);
-        let committer = PrecomputeLagrange::precompute(&CRS.G);
+        let g_aff: Vec<_> = CRS.G.iter().map(|point| point.into_affine()).collect();
+        let committer = PrecomputeLagrange::precompute(&g_aff);
         let config = Config { db: _db, committer };
         let mut _trie = Trie::new(config);
         _trie

@@ -12,8 +12,8 @@ test = true
 
 
 [dependencies]
-verkle-trie = { git = "https://github.com/tanishqjasoria/rust-verkle" }
-verkle-db = { git = "https://github.com/tanishqjasoria/rust-verkle", features = ["rocks_db"] }
+verkle-trie = { git = "https://github.com/tanishqjasoria/rust-verkle" , branch = "stable"}
+verkle-db = { git = "https://github.com/tanishqjasoria/rust-verkle", features = ["rocks_db"], branch = "stable"}
 tempfile = "3.2.0"
 bandersnatch = "0.1.1"
 ark-ff = { version = "^0.3.0", default-features = false }
