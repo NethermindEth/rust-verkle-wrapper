@@ -4,6 +4,7 @@ extern crate core;
 
 mod database;
 mod verkle_variants;
+pub mod utils;
 
 use crate::database::traits::{ReadOnlyDB, DB};
 use crate::Database::VerkleMemoryDb;
