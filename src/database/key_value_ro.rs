@@ -16,7 +16,7 @@ pub struct ReadOnlyKVDB<Storage: 'static> {
     // We will not be updating this
     pub db: &'static mut Storage,
     // This stores the key-value pairs that we need to insert into the storage
-    pub temp: HashMap<[u8; 32], [u8; 32]>,
+    pub temp: HashMap<Vec<u8>, Vec<u8>>,
 }
 
 impl<S: BareMetalDiskDb> ReadOnlyKVDB<S> {
@@ -55,7 +55,7 @@ impl<S: BareMetalKVDb + BareMetalDiskDb> BareMetalKVDb for ReadOnlyKVDB<S> {
 }
 
 pub struct MemoryBatchDB {
-    pub(crate) inner: HashMap<[u8; 32], [u8; 32]>,
+    pub(crate) inner: HashMap<Vec<u8>, Vec<u8>>,
 }
 
 impl MemoryBatchDB {
@@ -73,8 +73,8 @@ impl BatchWriter for MemoryBatchDB {
 
     fn batch_put(&mut self, key: &[u8], val: &[u8]) {
         self.inner.insert(
-            <[u8; 32]>::try_from(key).unwrap(),
-            <[u8; 32]>::try_from(val).unwrap(),
+            key.to_vec(),
+            val.to_vec(),
         );
     }
 }
