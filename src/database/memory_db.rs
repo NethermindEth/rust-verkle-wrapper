@@ -70,5 +70,6 @@ impl<T: ReadOnlyHigherDb + WriteOnlyHigherDb> Flush for VerkleTreeDb<GenericMemo
         );
 
         self.batch.clear();
+        self.cache.clear();
     }
 }
