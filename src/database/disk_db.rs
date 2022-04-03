@@ -65,5 +65,6 @@ impl<S: BatchDB> Flush for VerkleTreeDb<GenericBatchDB<S>> {
         self.storage.flush(w.inner);
 
         self.batch.clear();
+        self.cache.clear();
     }
 }

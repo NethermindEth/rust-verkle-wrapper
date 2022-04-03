@@ -54,7 +54,7 @@ mod db_trie_test_helper {
 
         let trie_2 = create_trie_from_db(CommitScheme::TestCommitment, db);
         let val = verkle_trie_get(trie_2, one32);
-        val.is_null();
+        assert!(val.is_null());
     }
 
     pub fn create_trie_from_flushed_db(db_scheme: DatabaseScheme) {
@@ -108,13 +108,19 @@ mod db_trie_test_helper {
         assert_value(val, _ONE32);
 
         let val = verkle_trie_get(trie, one);
-        val.is_null();
+        assert_value(val, _ONE);
+
+        verkle_trie_flush(trie_2);
+
+        let val = verkle_trie_get(trie_2, one);
+        assert_value(val, _ONE32);
 
         clear_temp_changes_read_only_db(ro_db);
 
-        let val = verkle_trie_get(trie, one);
-        val.is_null();
+        let val = verkle_trie_get(trie_2, one);
+        assert_value(val, _ONE);
     }
+
 }
 
 macro_rules! db_trie_test {
