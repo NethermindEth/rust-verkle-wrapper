@@ -1,3 +1,3 @@
-pub mod db;
+mod precompute;
 pub mod traits;
 pub mod trie;

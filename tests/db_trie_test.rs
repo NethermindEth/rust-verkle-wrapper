@@ -7,117 +7,112 @@ mod db_trie_test_helper {
         create_trie_from_db, create_verkle_db, verkle_trie_flush, verkle_trie_get,
         verkle_trie_insert, CommitScheme, DatabaseScheme,
     };
+    use rust_verkle::utils::{assert_value, get_boxed_value, str_to_cstr};
+    use rust_verkle::{clear_temp_changes_read_only_db, create_read_only_verkle_db};
     use std::ffi::CStr;
     use std::intrinsics::transmute;
     use std::os::raw::c_char;
     use tempfile::Builder;
 
-    pub fn str_to_cstr(val: &str) -> *const c_char {
-        let byte = val.as_bytes();
-        unsafe { CStr::from_bytes_with_nul_unchecked(byte).as_ptr() }
-    }
+    const _ONE: [u8; 32] = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1,
+    ];
+    const _ONE32: [u8; 32] = [1; 32];
 
     pub fn create_db_trie(db_scheme: DatabaseScheme) {
+        let one: *const u8 = get_boxed_value(_ONE);
+        let one32: *const u8 = get_boxed_value(_ONE32);
+
         let dir = Builder::new().tempdir().unwrap();
         let path = dir.path().to_str().unwrap();
         let db = create_verkle_db(db_scheme, str_to_cstr(path));
 
         let trie = create_trie_from_db(CommitScheme::TestCommitment, db);
 
-        let _one: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ];
-        let one: *const u8 = unsafe { transmute(Box::new(_one)) };
-        let _one_32: [u8; 32] = [1; 32];
-        let one_32 = unsafe { transmute(Box::new(_one_32)) };
         verkle_trie_insert(trie, one, one);
-        verkle_trie_insert(trie, one_32, one);
-        let val = verkle_trie_get(trie, one_32);
-        let _val: Box<[u8; 32]> = unsafe { transmute(val) };
-        let result = *_val;
-        assert_eq!(result, _one);
+        verkle_trie_insert(trie, one32, one);
+
+        let val = verkle_trie_get(trie, one32);
+        assert_value(val, _ONE);
     }
 
     pub fn create_trie_from_empty_db(db_scheme: DatabaseScheme) {
+        let one: *const u8 = get_boxed_value(_ONE);
+        let one32: *const u8 = get_boxed_value(_ONE32);
+
         let dir = Builder::new().tempdir().unwrap();
         let path = dir.path().to_str().unwrap();
         let db = create_verkle_db(db_scheme, str_to_cstr(path));
 
         let trie = create_trie_from_db(CommitScheme::TestCommitment, db);
 
-        let _one: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ];
-        let one: *const u8 = unsafe { transmute(Box::new(_one)) };
-        let _one_32: [u8; 32] = [1; 32];
-        let one_32 = unsafe { transmute(Box::new(_one_32)) };
         verkle_trie_insert(trie, one, one);
-        verkle_trie_insert(trie, one_32, one);
-        let val = verkle_trie_get(trie, one_32);
-        let _val: Box<[u8; 32]> = unsafe { transmute(val) };
-        let result = *_val;
-        assert_eq!(result, _one);
+        verkle_trie_insert(trie, one32, one);
+        let val = verkle_trie_get(trie, one32);
+        assert_value(val, _ONE);
 
         let trie_2 = create_trie_from_db(CommitScheme::TestCommitment, db);
-        let val = verkle_trie_get(trie_2, one_32);
+        let val = verkle_trie_get(trie_2, one32);
         val.is_null();
     }
 
     pub fn create_trie_from_flushed_db(db_scheme: DatabaseScheme) {
+        let one: *const u8 = get_boxed_value(_ONE);
+        let one32: *const u8 = get_boxed_value(_ONE32);
+
         let dir = Builder::new().tempdir().unwrap();
         let path = dir.path().to_str().unwrap();
         let db = create_verkle_db(db_scheme, str_to_cstr(path));
 
         let trie = create_trie_from_db(CommitScheme::TestCommitment, db);
 
-        let _one: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ];
-        let one: *const u8 = unsafe { transmute(Box::new(_one)) };
-        let _one_32: [u8; 32] = [1; 32];
-        let one_32 = unsafe { transmute(Box::new(_one_32)) };
         verkle_trie_insert(trie, one, one);
-        verkle_trie_insert(trie, one_32, one);
-        let val = verkle_trie_get(trie, one_32);
-        let _val: Box<[u8; 32]> = unsafe { transmute(val) };
-        let result = *_val;
-        assert_eq!(result, _one);
+        verkle_trie_insert(trie, one32, one);
+        let val = verkle_trie_get(trie, one32);
+        assert_value(val, _ONE);
+
         verkle_trie_flush(trie);
 
         let trie_2 = create_trie_from_db(CommitScheme::TestCommitment, db);
-        let val = verkle_trie_get(trie_2, one_32);
-        let _val: Box<[u8; 32]> = unsafe { transmute(val) };
-        let result = *_val;
-        assert_eq!(result, _one);
+        let val = verkle_trie_get(trie_2, one32);
+        assert_value(val, _ONE);
     }
 
     pub fn create_trie_from_flushed_db_readonly(db_scheme: DatabaseScheme) {
+        let one: *const u8 = get_boxed_value(_ONE);
+        let one32: *const u8 = get_boxed_value(_ONE32);
+
         let dir = Builder::new().tempdir().unwrap();
         let path = dir.path().to_str().unwrap();
         let db = create_verkle_db(db_scheme, str_to_cstr(path));
 
         let trie = create_trie_from_db(CommitScheme::TestCommitment, db);
 
-        let _one: [u8; 32] = [
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 1,
-        ];
-        let one: *const u8 = unsafe { transmute(Box::new(_one)) };
-        let _one_32: [u8; 32] = [1; 32];
-        let one_32 = unsafe { transmute(Box::new(_one_32)) };
         verkle_trie_insert(trie, one, one);
-        verkle_trie_insert(trie, one_32, one);
-        let val = verkle_trie_get(trie, one_32);
-        let _val: Box<[u8; 32]> = unsafe { transmute(val) };
-        let result = *_val;
-        assert_eq!(result, _one);
+        verkle_trie_insert(trie, one32, one);
+        let val = verkle_trie_get(trie, one32);
+        assert_value(val, _ONE);
+
         verkle_trie_flush(trie);
 
-        let trie_2 = create_trie_from_db(CommitScheme::TestCommitment, db);
-        let val = verkle_trie_get(trie_2, one_32);
+        let ro_db = create_read_only_verkle_db(db);
+
+        let trie_2 = create_trie_from_db(CommitScheme::TestCommitment, ro_db);
+
+        let val = verkle_trie_get(trie_2, one32);
+        assert_value(val, _ONE);
+
+        verkle_trie_insert(trie_2, one, one32);
+        let val = verkle_trie_get(trie_2, one);
+        assert_value(val, _ONE32);
+
+        let val = verkle_trie_get(trie, one);
+        val.is_null();
+
+        clear_temp_changes_read_only_db(ro_db);
+
+        let val = verkle_trie_get(trie, one);
         val.is_null();
     }
 }
@@ -148,7 +143,8 @@ db_trie_test![
     MemoryDb;
     create_db_trie,
     create_trie_from_empty_db,
-    create_trie_from_flushed_db
+    create_trie_from_flushed_db,
+    create_trie_from_flushed_db_readonly
 ];
 
 db_trie_test![
@@ -156,13 +152,6 @@ db_trie_test![
     RocksDb;
     create_db_trie,
     create_trie_from_empty_db,
-    create_trie_from_flushed_db
-];
-
-db_trie_test![
-    RocksReadOnlyDBTrie;
-    RocksDbReadOnly;
-    create_db_trie,
-    create_trie_from_empty_db,
+    create_trie_from_flushed_db,
     create_trie_from_flushed_db_readonly
 ];

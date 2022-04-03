@@ -2,8 +2,9 @@ use std::mem::transmute;
 use std::ptr;
 use verkle_trie::from_to_bytes::ToBytes;
 use verkle_trie::proof::VerkleProof;
-use verkle_trie::TrieTrait;
+use verkle_trie::{Config, Trie, TrieTrait};
 
+use crate::database::verkle_db::VerkleTreeDb;
 use crate::{
     get_array_from_slice_argument, get_vector_from_slice_argument, proof_ptr_to_proof_vec,
     CommitScheme, Database, Proof, VerkleTrie,
@@ -119,8 +120,4 @@ pub trait FFI: TrieTrait {
         }
         self.insert(itr.into_iter());
     }
-}
-
-pub trait DB {
-    fn create_db(path: &str) -> Self;
 }
