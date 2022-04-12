@@ -15,8 +15,10 @@ use std::mem::transmute;
 use std::ops::Deref;
 use std::os::raw::c_char;
 use std::slice;
+use verkle_spec::Hasher;
 use verkle_trie::database::Flush;
 use verkle_variants::{traits::FFI, trie};
+use crate::utils::PedersenHasher;
 
 #[repr(C)]
 pub enum VerkleTrie {
@@ -281,6 +283,19 @@ pub extern "C" fn verkle_trie_clear(vt: *mut VerkleTrie) {
 }
 
 #[no_mangle]
+pub extern "C" fn calculate_pedersan_hash(value: *const u8) -> *const u8 {
+    let _raw_slice = unsafe {
+        assert!(!value.is_null());
+        slice::from_raw_parts(value, 64)
+    };
+    let _value: &[u8;64] = _raw_slice.try_into().expect("slice with incorrect length");
+    let _hash = PedersenHasher::hash64(*_value);
+
+    let _result = unsafe { transmute(Box::new(_hash.0)) };
+    _result
+}
+
+#[no_mangle]
 pub extern "C" fn verkle_trie_insert(vt: *mut VerkleTrie, key: *const u8, value: *const u8) {
     let _vt = unsafe { &mut *vt };
     match _vt {
@@ -454,4 +469,41 @@ pub fn proof_ptr_to_proof_vec(ptr: *const u8, len: usize) -> Vec<u8> {
         raw_slice.push(_raw_slice[i]);
     }
     raw_slice
+}
+
+
+#[cfg(test)]
+mod test {
+    use std::convert::TryInto;
+    use std::mem::transmute;
+    use hex::FromHex;
+    use verkle_spec::{Address32, H256, Hasher, Header};
+    use crate::{calculate_pedersan_hash, get_array_from_slice_argument};
+
+    // input and outputs for these tests were taken from https://github.com/gballet/verkle-block-sample
+    #[test]
+    fn hash_test_wrapper_function() {
+        let tests = [
+            (
+                <[u8;64]>::from_hex("00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").expect("Decoding failed"),
+                <[u8;32]>::from_hex("695921dca3b16c5cc850e94cdd63f573c467669e89cec88935d03474d6bdf9d4").expect("Decoding failed")
+            ),
+            (
+                <[u8;64]>::from_hex("00020300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").expect("Decoding failed"),
+                <[u8;32]>::from_hex("5010fabfb319bf84136db68445972cdd5476ff2fbf3e5133330b3946b84b4e6a").expect("Decoding failed")
+            ),
+            (
+                <[u8;64]>::from_hex("0071562b71999873db5b286df957af199ec946170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").expect("Decoding failed"),
+                <[u8;32]>::from_hex("6fc5ac021ff2468685885ad7fdb31a0c58d1ee93254a58c9e9e0809187c53e71").expect("Decoding failed")
+            )
+        ];
+        for (input, output) in tests.iter() {
+            let hash = calculate_pedersan_hash(unsafe { transmute(Box::new(*input))});
+            let _hash = get_array_from_slice_argument(hash);
+            assert_eq!(
+                &_hash,
+                output
+            );
+        }
+    }
 }
