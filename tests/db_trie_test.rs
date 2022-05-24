@@ -121,6 +121,29 @@ mod db_trie_test_helper {
         assert_value(val, _ONE);
     }
 
+    pub fn create_trie_on_same_db_path(db_scheme: DatabaseScheme) {
+        let one: *const u8 = get_boxed_value(_ONE);
+        let one32: *const u8 = get_boxed_value(_ONE32);
+
+        let dir = Builder::new().tempdir().unwrap();
+        let path = dir.path().to_str().unwrap();
+
+        let db1 = create_verkle_db(db_scheme.clone(), str_to_cstr(path));
+        let trie1 = create_trie_from_db(CommitScheme::TestCommitment, db1);
+
+        verkle_trie_insert(trie1, one, one);
+        verkle_trie_insert(trie1, one32, one);
+
+        let db2 = create_verkle_db(db_scheme.clone(), str_to_cstr(path));
+        let trie2 = create_trie_from_db(CommitScheme::TestCommitment, db1);
+
+        let val = verkle_trie_get(trie2, one32);
+        assert_value(val, _ONE);
+
+        let val1 = verkle_trie_get(trie2, one);
+        assert_value(val1, _ONE);
+    }
+
 }
 
 macro_rules! db_trie_test {

@@ -47,6 +47,7 @@ pub struct Proof {
 }
 
 #[repr(C)]
+#[derive(Clone)]
 pub enum DatabaseScheme {
     MemoryDb,
     RocksDb,
@@ -74,6 +75,10 @@ pub extern "C" fn create_verkle_db(
         }
         DatabaseScheme::MemoryDb => {
             let _db = database::memory_db::VerkleMemoryDB::create_db(db_path);
+            Some(VerkleMemoryDb(_db))
+        }
+        DatabaseScheme::RocksDbReadOnly => {
+            let _db = database::disk_db::VerkleReadOnlyRocksDB::create_db(db_path);
             Some(VerkleMemoryDb(_db))
         }
         _ => None,
